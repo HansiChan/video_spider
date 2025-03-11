@@ -10,6 +10,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.service import Service
 from selenium.common.exceptions import TimeoutException
 import shutil
 
@@ -41,7 +42,7 @@ def get_video_url(url):
     chrome_options.add_argument("--remote-debugging-port=9222")
     chrome_options.add_argument("user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
 
-    # 在 Railway 服务器上查找 ChromeDriver 的正确路径
+        # 查找 Railway 服务器上的 ChromeDriver 路径
     chromedriver_path = shutil.which("chromedriver")
 
     if not chromedriver_path:
@@ -50,8 +51,9 @@ def get_video_url(url):
 
     send_log(f"✅ ChromeDriver 路径: {chromedriver_path}")
 
-    # 使用指定路径的 ChromeDriver
-    driver = webdriver.Chrome(executable_path=chromedriver_path, options=chrome_options)
+    # 使用 `Service()` 指定 chromedriver 路径
+    service = Service(chromedriver_path)
+    driver = webdriver.Chrome(service=service, options=chrome_options)
     video_url = None
     retry_count = 3
 
