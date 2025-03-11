@@ -136,4 +136,4 @@ def download():
     return send_file(filepath, as_attachment=True)
 
 if __name__ == '__main__':
-    socketio.run(app, host="0.0.0.0", port=5030, debug=True)
+    socketio.run(app, host="0.0.0.0", port=5030, debug=True, allow_unsafe_werkzeug=True)
