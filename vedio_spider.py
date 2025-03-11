@@ -18,10 +18,12 @@ SAVE_DIR = "downloads"
 
 def send_log(message):
     """向前端发送日志信息"""
+    print(f"[LOG] {message}")  # 添加服务器端日志
     socketio.emit('log', {'message': message})
 
 def send_progress(progress):
     """向前端发送下载进度（只更新当前进度）"""
+    print(f"[PROGRESS] {progress}")  # 添加服务器端日志
     socketio.emit('progress', {'progress': progress})
 
 def get_video_url(url):
@@ -45,10 +47,12 @@ def get_video_url(url):
     try:
         for attempt in range(retry_count):
             try:
+                send_log(f"🔄 第 {attempt + 1} 次尝试访问页面...")
                 driver.get(url)
                 time.sleep(5)
                 
                 # 1. 尝试直接查找video标签
+                send_log("🔍 正在查找 video 标签...")
                 video_elements = driver.find_elements(By.TAG_NAME, "video")
                 if video_elements:
                     for video in video_elements:
@@ -58,6 +62,7 @@ def get_video_url(url):
                             return video_url
 
                 # 2. 尝试查找iframe
+                send_log("🔍 正在查找 iframe...")
                 iframes = driver.find_elements(By.TAG_NAME, "iframe")
                 for iframe in iframes:
                     try:
@@ -70,11 +75,13 @@ def get_video_url(url):
                                     send_log(f"✅ 通过iframe中的video标签找到视频地址: {video_url}")
                                     return video_url
                         driver.switch_to.default_content()
-                    except:
+                    except Exception as e:
+                        send_log(f"⚠️ iframe 切换失败: {str(e)}")
                         driver.switch_to.default_content()
                         continue
 
                 # 3. 尝试查找source标签
+                send_log("🔍 正在查找 source 标签...")
                 source_elements = driver.find_elements(By.TAG_NAME, "source")
                 if source_elements:
                     for source in source_elements:
@@ -84,6 +91,7 @@ def get_video_url(url):
                             return video_url
 
                 # 4. 尝试查找特定的视频播放器
+                send_log("🔍 正在查找视频播放器...")
                 video_players = [
                     ".video-player video",
                     ".player video",
@@ -122,10 +130,18 @@ def get_video_url(url):
 def download_video(video_url):
     """下载视频，并动态更新进度"""
     try:
+        # 检查下载目录权限
+        send_log(f"📁 检查下载目录: {os.path.abspath(SAVE_DIR)}")
         if not os.path.exists(SAVE_DIR):
-            os.makedirs(SAVE_DIR)
+            try:
+                os.makedirs(SAVE_DIR)
+                send_log("✅ 成功创建下载目录")
+            except Exception as e:
+                send_log(f"❌ 创建下载目录失败: {str(e)}")
+                return None
 
         send_log(f"⬇️ 开始下载: {video_url}")
+        send_log("🔍 正在发送下载请求...")
 
         headers = {
             'User-Agent': 'Mozilla/5.0',
@@ -134,30 +150,42 @@ def download_video(video_url):
 
         response = requests.get(video_url, headers=headers, stream=True)
         response.raise_for_status()
+        send_log(f"✅ 请求成功，HTTP状态码: {response.status_code}")
 
         # 使用固定文件名
         filename = "video.mp4"
         filepath = os.path.join(SAVE_DIR, filename)
+        send_log(f"📝 准备写入文件: {os.path.abspath(filepath)}")
 
         total_size = int(response.headers.get('content-length', 0))
+        send_log(f"📊 文件总大小: {total_size} 字节")
         downloaded_size = 0
         block_size = 1024
 
-        with open(filepath, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=block_size):
-                if chunk:
-                    f.write(chunk)
-                    downloaded_size += len(chunk)
-                    if total_size > 0:
-                        progress = (downloaded_size / total_size) * 100
-                        send_progress(f"{progress:.2f}%")
+        try:
+            with open(filepath, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=block_size):
+                    if chunk:
+                        f.write(chunk)
+                        downloaded_size += len(chunk)
+                        if total_size > 0:
+                            progress = (downloaded_size / total_size) * 100
+                            send_progress(f"{progress:.2f}%")
 
-        send_log(f"✅ 下载完成: {filepath}")
-        send_progress("100%")
-        return filepath
+            send_log(f"✅ 下载完成: {filepath}")
+            send_log(f"📊 最终文件大小: {os.path.getsize(filepath)} 字节")
+            send_progress("100%")
+            return filepath
 
+        except Exception as e:
+            send_log(f"❌ 文件写入失败: {str(e)}")
+            return None
+
+    except requests.exceptions.RequestException as e:
+        send_log(f"❌ 下载请求失败: {str(e)}")
+        return None
     except Exception as e:
-        send_log(f"❌ 下载失败: {e}")
+        send_log(f"❌ 下载过程发生错误: {str(e)}")
         return None
 
 @app.route('/')
@@ -191,10 +219,18 @@ def fetch_video():
 def download():
     """返回下载的视频文件"""
     filepath = request.args.get("path")
+    send_log(f"📂 请求下载文件: {filepath}")
+
     if not filepath or not os.path.exists(filepath):
+        send_log(f"❌ 文件不存在: {filepath}")
         return "❌ 文件不存在", 404
 
-    return send_file(filepath, as_attachment=True)
+    try:
+        send_log(f"✅ 开始传输文件: {filepath}")
+        return send_file(filepath, as_attachment=True)
+    except Exception as e:
+        send_log(f"❌ 文件传输失败: {str(e)}")
+        return "文件传输失败", 500
 
 if __name__ == '__main__':
     socketio.run(app, host="0.0.0.0", port=5030, debug=True, allow_unsafe_werkzeug=True)
