@@ -74,8 +74,8 @@ def download_video(video_url):
         response = requests.get(video_url, headers=headers, stream=True)
         response.raise_for_status()
 
-        timestamp = time.strftime("%Y%m%d_%H%M%S")
-        filename = f"video_{timestamp}.mp4"
+        # 使用固定文件名
+        filename = "video.mp4"
         filepath = os.path.join(SAVE_DIR, filename)
 
         total_size = int(response.headers.get('content-length', 0))
