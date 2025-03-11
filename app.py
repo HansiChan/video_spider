@@ -11,6 +11,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
+import shutil
 
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")
@@ -40,7 +41,17 @@ def get_video_url(url):
     chrome_options.add_argument("--remote-debugging-port=9222")
     chrome_options.add_argument("user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
 
-    driver = webdriver.Chrome(options=chrome_options)
+    # 在 Railway 服务器上查找 ChromeDriver 的正确路径
+    chromedriver_path = shutil.which("chromedriver")
+
+    if not chromedriver_path:
+        send_log("❌ 未找到 ChromeDriver，请检查是否正确安装！")
+        return None
+
+    send_log(f"✅ ChromeDriver 路径: {chromedriver_path}")
+
+    # 使用指定路径的 ChromeDriver
+    driver = webdriver.Chrome(executable_path=chromedriver_path, options=chrome_options)
     video_url = None
     retry_count = 3
 
