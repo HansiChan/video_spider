@@ -25,4 +25,4 @@ jobs:
 
       - name: 🚀 启动 Flask 服务器
         run: |
-          python app.py
+          python vedio_spider.py
